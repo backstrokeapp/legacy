@@ -6,9 +6,9 @@ const bodyParser = require('body-parser');
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: true}));
 
-const { webhook } = require('./remote');
+const handler = require('./handler');
 
-app.post('/', webhook);
+app.post('/', handler.route);
 
 const port = process.env.PORT || 8000;
 app.listen(port);

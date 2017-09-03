@@ -17,41 +17,36 @@ const ghFactory = require('./github');
 let gh = ghFactory.constructor(github);
 
 // has the given fork diverged from its parent?
-module.exports.hasDivergedFromUpstream = function hasDivergedFromUpstream(platform, user, repo) {
-  switch (platform) {
-    case "github":
-      let repoContents;
-      return gh.reposGet({user, repo}).then(repoData => {
-        repoContents = repoData;
-        if (repoData.parent) {
-          return Promise.all([
-            // base branch
-            gh.reposGetBranch({
-              user,
-              repo,
-              branch: repoData.default_branch,
-            }),
-            // upstream branch
-            gh.reposGetBranch({
-              user: repoData.parent.owner.login,
-              repo: repoData.parent.name,
-              branch: repoData.parent.default_branch,
-            }),
-          ]);
-        } else {
-          throw new Error(`The repository ${user}/${repo} isn't a fork.`);
-        }
-      }).then(([base, upstream]) => {
-        return {
-          repo: repoContents,
-          diverged: base.commit.sha !== upstream.commit.sha,
-          baseSha: base.commit.sha,
-          upstreamSha: upstream.commit.sha,
-        };
-      });
-    default:
-      return Promise.reject(`No such platform ${platform}`);
-  }
+module.exports.hasDivergedFromUpstream = function hasDivergedFromUpstream(user, repo) {
+  let repoContents;
+  return gh.reposGet({user, repo}).then(repoData => {
+    repoContents = repoData;
+    if (repoData.parent) {
+      return Promise.all([
+        // base branch
+        gh.reposGetBranch({
+          user,
+          repo,
+          branch: repoData.default_branch,
+        }),
+        // upstream branch
+        gh.reposGetBranch({
+          user: repoData.parent.owner.login,
+          repo: repoData.parent.name,
+          branch: repoData.parent.default_branch,
+        }),
+      ]);
+    } else {
+      throw new Error(`The repository ${user}/${repo} isn't a fork.`);
+    }
+  }).then(([base, upstream]) => {
+    return {
+      repo: repoContents,
+      diverged: base.commit.sha !== upstream.commit.sha,
+      baseSha: base.commit.sha,
+      upstreamSha: upstream.commit.sha,
+    };
+  });
 }
 
 module.exports.generateUpdateBody = function generateUpdateBody(fullRemote, tempRepoName) {
@@ -71,56 +66,46 @@ module.exports.generateUpdateBody = function generateUpdateBody(fullRemote, temp
 }
 
 // does a user want to opt out of receiving backstroke PRs?
-module.exports.didUserOptOut = function didUserOptOut(platform, user, repo) {
-  switch (platform) {
-    case "github":
-      return gh.searchIssues({
-        q: `repo:${user}/${repo} is:pr label:optout`,
-      }).then(issues => {
-        return issues.total_count > 0;
-      });
-    default:
-      return Promise.reject(`No such platform ${platform}`);
-  }
+module.exports.didUserOptOut = function didUserOptOut(user, repo) {
+  return gh.searchIssues({
+    q: `repo:${user}/${repo} is:pr label:optout`,
+  }).then(issues => {
+    return issues.total_count > 0;
+  });
 }
 
-// given a platform and a repository, open the pr to update it to its upstream.
-module.exports.postUpdate = function postUpdate(platform, repo, upstreamSha) {
-  switch (platform) {
-    case "github":
-      if (repo) {
-        if (repo.parent) {
-          return gh.pullRequestsGetAll({
-            user: repo.owner.login || repo.owner.name,
-            repo: repo.name,
-            state: "open",
+// Given a repository, open the pr to update it to its upstream.
+module.exports.postUpdate = function postUpdate(repo, upstreamSha) {
+  if (repo) {
+    if (repo.parent) {
+      return gh.pullRequestsGetAll({
+        user: repo.owner.login || repo.owner.name,
+        repo: repo.name,
+        state: "open",
+        head: `${repo.parent.owner.login}:${repo.parent.default_branch}`,
+      }).then(existingPulls => {
+        // are we trying to reintroduce a pull request that has already been
+        // made previously?
+        let duplicateRequests = existingPulls.find(pull => pull.head.sha === upstreamSha);
+        if (!duplicateRequests) {
+          console.info("Making pull to", repo.owner.login, repo.name);
+          // create a pull request to merge in remote changes
+          return gh.pullRequestsCreate({
+            user: repo.owner.login, repo: repo.name,
+            title: `Update from upstream repo ${repo.parent.full_name}`,
             head: `${repo.parent.owner.login}:${repo.parent.default_branch}`,
-          }).then(existingPulls => {
-            // are we trying to reintroduce a pull request that has already been
-            // made previously?
-            let duplicateRequests = existingPulls.find(pull => pull.head.sha === upstreamSha);
-            if (!duplicateRequests) {
-              console.info("Making pull to", repo.owner.login, repo.name);
-              // create a pull request to merge in remote changes
-              return gh.pullRequestsCreate({
-                user: repo.owner.login, repo: repo.name,
-                title: `Update from upstream repo ${repo.parent.full_name}`,
-                head: `${repo.parent.owner.login}:${repo.parent.default_branch}`,
-                base: repo.default_branch,
-                body: generateUpdateBody(repo.parent.full_name),
-              });
-            } else {
-              throw new Error(`The PR already has been made.`);
-            }
+            base: repo.default_branch,
+            body: module.exports.generateUpdateBody(repo.parent.full_name),
           });
         } else {
-          return Promise.reject(new Error(`The repository ${repo.full_name} isn't a fork.`));
+          throw new Error(`The PR already has been made.`);
         }
-      } else {
-        return Promise.reject(new Error(`No repository found`));
-      }
-    default:
-      return Promise.reject(`No such platform ${platform}`);
+      });
+    } else {
+      return Promise.reject(new Error(`The repository ${repo.full_name} isn't a fork.`));
+    }
+  } else {
+    return Promise.reject(new Error(`No repository found`));
   }
 }
 
@@ -149,7 +134,7 @@ module.exports.getUpstream = function getUpstream(repository, opts={}) {
 // Routes
 // ----------------------------------------------------------------------------
 
-module.exports.webhook = function webhook(req, res) {
+module.exports.route = function route(req, res) {
   // the repo is a fork, or the user has manually specified an upstream to merge into
   if (
     (req.body && req.body.repository && req.body.repository.fork) ||
