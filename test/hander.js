@@ -2,11 +2,11 @@ const proxyquire = require('proxyquire');
 const sinon = require('sinon');
 const assert = require('assert');
 const Promise = require('bluebird');
-const {getUpstream, postUpdate} = require('../src/remote');
+const { getUpstream, postUpdate } = require('../src/handler');
 
 describe(`hasDivergedFromUpstream`, function() {
   describe(`diverging repo and upstream`, function() {
-    let remote, gh;
+    let handler, gh;
     beforeEach(function() {
       gh = require('../src/github');
       let reposGetBranch = sinon.stub();
@@ -39,14 +39,14 @@ describe(`hasDivergedFromUpstream`, function() {
       };
       sinon.stub(gh, `constructor`).returns(ghMock);
 
-      // run remote code using the above mock
-      remote = proxyquire(`../src/remote`, {
+      // run handler code using the above mock
+      handler = proxyquire(`../src/handler`, {
         './github': gh,
       });
     });
     afterEach(() => gh.constructor.restore());
     it(`should detect an repo that has diverged from its upstream`, function() {
-      return remote.hasDivergedFromUpstream(`user`, `repo`).then(out => {
+      return handler.hasDivergedFromUpstream(`user`, `repo`).then(out => {
         assert.equal(out.diverged, true);
         assert.equal(out.baseSha, `forkRepoCommitSha`);
         assert.equal(out.upstreamSha, `upstreamRepoCommitSha`);
@@ -54,7 +54,7 @@ describe(`hasDivergedFromUpstream`, function() {
     });
   });
   describe(`diverging repo and upstream`, function() {
-    let remote, gh;
+    let handler, gh;
     beforeEach(function() {
       gh = require('../src/github');
       let reposGetBranch = sinon.stub();
@@ -83,12 +83,12 @@ describe(`hasDivergedFromUpstream`, function() {
       };
       sinon.stub(gh, `constructor`).returns(ghMock);
 
-      // run remote code using the above mock
-      remote = proxyquire(`../src/remote`, { './github': gh, });
+      // run handler code using the above mock
+      handler = proxyquire(`../src/handler`, { './github': gh, });
     });
     afterEach(() => gh.constructor.restore());
     it(`should detect a repo that has not diverged from its upstream`, function() {
-      return remote.hasDivergedFromUpstream(`user`, `repo`).then(out => {
+      return handler.hasDivergedFromUpstream(`user`, `repo`).then(out => {
         assert.equal(out.diverged, false);
         assert.equal(out.baseSha, `commonSha`);
         assert.equal(out.upstreamSha, `commonSha`);
@@ -99,7 +99,7 @@ describe(`hasDivergedFromUpstream`, function() {
 
 describe(`didUserOptOut`, function() {
   describe(`with a pr made with the label 'optout'`, function() {
-    let remote, gh;
+    let handler, gh;
     beforeEach(function() {
       gh = require('../src/github');
 
@@ -116,20 +116,20 @@ describe(`didUserOptOut`, function() {
       };
       sinon.stub(gh, `constructor`).returns(ghMock);
 
-      // run remote code using the above mock
-      remote = proxyquire(`../src/remote`, {
+      // run handler code using the above mock
+      handler = proxyquire(`../src/handler`, {
         './github': gh,
       });
     });
     afterEach(() => gh.constructor.restore());
     it(`should detect a user that opted out`, function() {
-      return remote.didUserOptOut(`user`, `repo`).then(out => {
+      return handler.didUserOptOut(`user`, `repo`).then(out => {
         assert.equal(out, true);
       });
     });
   });
   describe(`with no prs at all`, function() {
-    let remote, gh;
+    let handler, gh;
     beforeEach(function() {
       gh = require('../src/github');
 
@@ -144,14 +144,14 @@ describe(`didUserOptOut`, function() {
       };
       sinon.stub(gh, `constructor`).returns(ghMock);
 
-      // run remote code using the above mock
-      remote = proxyquire(`../src/remote`, {
+      // run handler code using the above mock
+      handler = proxyquire(`../src/handler`, {
         './github': gh,
       });
     });
     afterEach(() => gh.constructor.restore());
     it(`should detect a user that opted out`, function() {
-      return remote.didUserOptOut(`user`, `repo`).then(out => {
+      return handler.didUserOptOut(`user`, `repo`).then(out => {
         assert.equal(out, false);
       });
     });
@@ -182,7 +182,7 @@ describe(`postUpdate`, function() {
   });
 
   describe(`with a PR that's already been made`, function() {
-    let remote, gh;
+    let handler, gh;
     beforeEach(function() {
       gh = require('../src/github');
 
@@ -200,14 +200,14 @@ describe(`postUpdate`, function() {
       };
       sinon.stub(gh, `constructor`).returns(ghMock);
 
-      // run remote code using the above mock
-      remote = proxyquire(`../src/remote`, {
+      // run handler code using the above mock
+      handler = proxyquire(`../src/handler`, {
         './github': gh,
       });
     });
     afterEach(() => gh.constructor.restore());
     it(`should not post an update on a PR that's already been made`, function() {
-      return remote.postUpdate({
+      return handler.postUpdate({
         parent: {
           owner: {
             login: `userParent`,
@@ -228,7 +228,7 @@ describe(`postUpdate`, function() {
     });
   });
   describe(`with no PR made`, function() {
-    let remote, gh;
+    let handler, gh;
     beforeEach(function() {
       gh = require('../src/github');
 
@@ -248,14 +248,14 @@ describe(`postUpdate`, function() {
       };
       sinon.stub(gh, `constructor`).returns(ghMock);
 
-      // run remote code using the above mock
-      remote = proxyquire(`../src/remote`, {
+      // run handler code using the above mock
+      handler = proxyquire(`../src/handler`, {
         './github': gh,
       });
     });
     afterEach(() => gh.constructor.restore());
     it(`should not post an update on a PR that's already been made`, function() {
-      return remote.postUpdate({
+      return handler.postUpdate({
         parent: {
           owner: {
             login: `userParent`,
