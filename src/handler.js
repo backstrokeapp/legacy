@@ -88,7 +88,7 @@ module.exports.postUpdate = function postUpdate(repo, upstreamSha) {
         // made previously?
         let duplicateRequests = existingPulls.find(pull => pull.head.sha === upstreamSha);
         if (!duplicateRequests) {
-          console.info("Making pull to", repo.owner.login, repo.name);
+          console.info(`Making pull to ${repo.owner.login} ${repo.name}`);
           // create a pull request to merge in remote changes
           return gh.pullRequestsCreate({
             user: repo.owner.login, repo: repo.name,
@@ -142,7 +142,7 @@ module.exports.route = function route(req, res) {
   ) {
     // Try to merge upstream changes into the passed repo
     console.info("Merging upstream", req.body.repository.full_name);
-    return isForkMergeUpstream(req.body.repository, req.query).then(msg => {
+    return module.exports.isForkMergeUpstream(req.body.repository, req.query).then(msg => {
       if (typeof msg === "string") {
         res.send(msg);
       } else {
@@ -154,8 +154,8 @@ module.exports.route = function route(req, res) {
   } else {
     // Find all forks of the current repo and merge the passed repo's changes
     // into each
-    console.info("Finding forks", req.body.repository.full_name);
-    return isParentFindForks(req.body.repository, req.query).then(msg => {
+    console.info(`* Finding forks ${req.body.repository.full_name}`);
+    return module.exports.isParentFindForks(req.body.repository, req.query).then(msg => {
       if (typeof msg === "string") {
         res.send(msg);
       } else {
@@ -170,22 +170,22 @@ module.exports.route = function route(req, res) {
 // given a fork, create a pull request to merge in upstream changes
 module.exports.isForkMergeUpstream = function isForkMergeUpstream(repository, opts={}) {
   // get the upstream to merge into
-  let {user: upstreamName, repo: upstreamRepo} = getUpstream(repository, opts);
+  const {user: upstreamName, repo: upstreamRepo} = module.exports.getUpstream(repository, opts);
   let repoName = repository.name, repoUser = repository.owner.name || repository.owner.login;
 
   // don't bug opted out users (opt out happens on the fork)
-  return didUserOptOut("github", repoUser, repoName).then(didOptOut => {
+  return module.exports.didUserOptOut(repoUser, repoName).then(didOptOut => {
     if (didOptOut) {
-      console.info(`Repo ${repoUser}/${repoName} opted out D:`);
+      console.info(`* Repo ${repoUser}/${repoName} opted out D:`);
       return {repo: null, diverged: false};
     } else {
       // otherwise, keep going...
-      return hasDivergedFromUpstream("github", repoUser, repoName);
+      return module.exports.hasDivergedFromUpstream(repoUser, repoName);
     }
   }).then(({repo, diverged, upstreamSha}) => {
     if (diverged) {
       // make a pull request
-      return postUpdate("github", repo, upstreamSha).then(ok => {
+      return module.exports.postUpdate(repo, upstreamSha).then(ok => {
         return true; // success
       });
     } else {
@@ -200,7 +200,7 @@ module.exports.isParentFindForks = function isParentFindForks(repository, opts={
     repo: repository.name,
   }).then(forks => {
     let pullreqs = forks.map(fork => {
-      return isForkMergeUpstream(fork, opts);
+      return module.exports.isForkMergeUpstream(fork, opts);
     });
 
     return Promise.all(pullreqs).then(reqs => {
