@@ -219,11 +219,12 @@ describe(`postUpdate`, function() {
         default_branch: `master`,
         owner: { login: `user` },
         name: `repo`,
+        full_name: `user/repo`,
         default_branch: `master`,
       }, `pullRequestHeadSha`).then(out => {
         assert.equal(`Shouldn't have resolved`, false);
       }).catch(err => {
-        assert.equal(err.message, `The PR already has been made.`);
+        assert.equal(err.message, `A Backstroke pull request already exists on user/repo`);
       })
     });
   });
