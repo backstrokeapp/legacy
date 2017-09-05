@@ -165,7 +165,7 @@ module.exports.route = function route(req, res) {
         res.send({ok: true});
       }
     }).catch(error => {
-      res.send({error});
+      res.send({error: error.message});
     });
   } else {
     // Find all forks of the current repo and merge the passed repo's changes
@@ -180,7 +180,7 @@ module.exports.route = function route(req, res) {
         res.send({ok: true});
       }
     }).catch(error => {
-      res.send({error});
+      res.send({error: error.message});
     });
   }
 }
