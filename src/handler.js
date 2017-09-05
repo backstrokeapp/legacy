@@ -1,6 +1,8 @@
 const Promise = require('bluebird');
 const GitHubApi = require('github');
 
+const log = (...args) => console.log.apply(console, ['*', ...args]);
+
 // configure github api client
 let github = new GitHubApi({});
 if (process.env.GITHUB_TOKEN) {
@@ -88,7 +90,7 @@ module.exports.postUpdate = function postUpdate(repo, upstreamSha) {
         // made previously?
         let duplicateRequests = existingPulls.find(pull => pull.head.sha === upstreamSha);
         if (!duplicateRequests) {
-          console.info(`Making pull to ${repo.owner.login} ${repo.name}`);
+          log(`Making pull to ${repo.owner.login}/${repo.name}`);
           // create a pull request to merge in remote changes
           return gh.pullRequestsCreate({
             user: repo.owner.login, repo: repo.name,
@@ -98,13 +100,16 @@ module.exports.postUpdate = function postUpdate(repo, upstreamSha) {
             body: module.exports.generateUpdateBody(repo.parent.full_name),
           });
         } else {
-          throw new Error(`The PR already has been made.`);
+          log(`A Backstroke pull request already exists on ${repo.full_name}. Done.`);
+          throw new Error(`A Backstroke pull request already exists on ${repo.full_name}`);
         }
       });
     } else {
+      log(`${repo.full_name} is not a fork! Done.`);
       return Promise.reject(new Error(`The repository ${repo.full_name} isn't a fork.`));
     }
   } else {
+    log(`repo was falsey, repo = ${repo}. Done.`);
     return Promise.reject(new Error(`No repository found`));
   }
 }
@@ -135,34 +140,47 @@ module.exports.getUpstream = function getUpstream(repository, opts={}) {
 // ----------------------------------------------------------------------------
 
 module.exports.route = function route(req, res) {
+  // Ensure the repository name is in the body.
+  if (!(req.body.repository && req.body.repository.full_name)) {
+    res.status(400).send({error: 'Malformed body, no .repository.full_name key.'});
+  }
+  if (!(req.body.repository && req.body.repository.default_branch)) {
+    res.status(400).send({error: 'Malformed body, no .repository.default_branch key.'});
+  }
+
+
   // the repo is a fork, or the user has manually specified an upstream to merge into
   if (
     (req.body && req.body.repository && req.body.repository.fork) ||
     req.query.upstream
   ) {
+    const defaultBranch = req.body.repository.default_branch;
+    console.log(`Hook received from upstream@${defaultBranch} --> ${req.body.repository.full_name}@${defaultBranch}`);
+
     // Try to merge upstream changes into the passed repo
-    console.info("Merging upstream", req.body.repository.full_name);
     return module.exports.isForkMergeUpstream(req.body.repository, req.query).then(msg => {
       if (typeof msg === "string") {
-        res.send(msg);
+        res.send({ok: true, detail: msg});
       } else {
-        res.send("Success!");
+        res.send({ok: true});
       }
-    }).catch(err => {
-      res.send(`Uhh, error: ${err}`);
+    }).catch(error => {
+      res.send({error});
     });
   } else {
     // Find all forks of the current repo and merge the passed repo's changes
     // into each
-    console.info(`* Finding forks ${req.body.repository.full_name}`);
+    const defaultBranch = req.body.repository.default_branch;
+    console.log(`Hook received from ${req.body.repository.full_name}@${defaultBranch} --> all forks@${defaultBranch}`);
+
     return module.exports.isParentFindForks(req.body.repository, req.query).then(msg => {
       if (typeof msg === "string") {
-        res.send(msg);
+        res.send({ok: true, detail: msg});
       } else {
-        res.send("Success!");
+        res.send({ok: true});
       }
-    }).catch(err => {
-      res.send(`Uhh, error: ${err}`);
+    }).catch(error => {
+      res.send({error});
     });
   }
 }
@@ -176,19 +194,23 @@ module.exports.isForkMergeUpstream = function isForkMergeUpstream(repository, op
   // don't bug opted out users (opt out happens on the fork)
   return module.exports.didUserOptOut(repoUser, repoName).then(didOptOut => {
     if (didOptOut) {
-      console.info(`* Repo ${repoUser}/${repoName} opted out D:`);
+      log(`Repo opted-out. Done.`);
       return {repo: null, diverged: false};
     } else {
+      log('Repository did not opt-out.');
       // otherwise, keep going...
       return module.exports.hasDivergedFromUpstream(repoUser, repoName);
     }
-  }).then(({repo, diverged, upstreamSha}) => {
+  }).then(({repo, diverged, baseSha, upstreamSha}) => {
     if (diverged) {
+      log(`Changes were found between the fork and upstream (${baseSha.slice(0, 8)} != ${upstreamSha.slice(0, 8)})`);
       // make a pull request
       return module.exports.postUpdate(repo, upstreamSha).then(ok => {
+        log(`Pull request created for repo ${repo.full_name}.`);
         return true; // success
       });
     } else {
+      log(`Fork and upstream haven't diverged. Done.`);
       return "Thanks anyway, but the user either opted out or this isn't an imporant event.";
     }
   });
