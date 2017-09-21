@@ -1,6 +1,9 @@
 const express = require('express');
 const app = express();
 const proxy = require('express-http-proxy');
+
+const API_URL = process.env.API_URL || 'https://api.backstroke.co';
+const ROOT_URL = process.env.ROOT_URL || 'https://backstroke.co';
  
 
 // parse body of incoming requests
@@ -15,12 +18,17 @@ app.post('/', handler.route);
 
 // Support webhooks that were sent to the old backstroke.us, and transparently preoxy them to the
 // new service.
-app.post('/_:id', proxy('https://api.backstroke.co', {
+app.post('/_:id', proxy(API_URL, {
   proxyReqPathResolver(req) {
     return `/_${req.params.id}`;
   },
   userResDecorator(res, resData, req) {
-    const data = JSON.parse(resData.toString('utf8'));
+    let data;
+    try {
+      data = JSON.parse(resData.toString('utf8'));
+    } catch (err) {
+      return data;
+    }
     data.notice = `Backstroke's new location is https://backstroke.co, change this webhook to point to https://api.backstroke.co/_${req.params.id}.`;
     return JSON.stringify(data);
   },
@@ -29,7 +37,7 @@ app.post('/_:id', proxy('https://api.backstroke.co', {
 // Forward all other GET requests to the new service.
 app.use((req, res, next) => {
   if (req.method === 'GET') {
-    res.redirect(`https://backstroke.co${req.url}`); // req.url starts with a slash.
+    res.redirect(`${ROOT_URL}${req.url}`); // req.url starts with a slash.
   } else {
     next();
   }
