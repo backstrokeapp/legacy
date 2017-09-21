@@ -11,29 +11,35 @@ describe(`hasDivergedFromUpstream`, function() {
       gh = require('../src/github');
       let reposGetBranch = sinon.stub();
       // fork (user/repo)
-      reposGetBranch.withArgs({user: `user`, repo: `repo`, branch: `master`}).resolves({
-        commit: {
-          sha: `forkRepoCommitSha`,
+      reposGetBranch.withArgs({owner: `user`, repo: `repo`, branch: `master`}).resolves({
+        data: {
+          commit: {
+            sha: `forkRepoCommitSha`,
+          },
         },
       });
       // upstream (parent/upstream_repo)
-      reposGetBranch.withArgs({user: `parent`, repo: `upstream_repo`, branch: `master`}).resolves({
-        commit: {
-          sha: `upstreamRepoCommitSha`,
+      reposGetBranch.withArgs({owner: `parent`, repo: `upstream_repo`, branch: `master`}).resolves({
+        data: {
+          commit: {
+            sha: `upstreamRepoCommitSha`,
+          },
         },
       });
 
       // mock the github constructor
       let ghMock = {
         reposGet: sinon.stub().withArgs(`user`, `repo`).resolves({
-          parent: {
-            owner: {
-              login: `parent`,
+          data: {
+            parent: {
+              owner: {
+                login: `parent`,
+              },
+              name: `upstream_repo`,
+              default_branch: `master`,
             },
-            name: `upstream_repo`,
             default_branch: `master`,
           },
-          default_branch: `master`,
         }),
         reposGetBranch,
       };
@@ -59,25 +65,33 @@ describe(`hasDivergedFromUpstream`, function() {
       gh = require('../src/github');
       let reposGetBranch = sinon.stub();
       // fork (user/repo)
-      reposGetBranch.withArgs({user: `user`, repo: `repo`, branch: `master`}).resolves({
-        commit: { sha: `commonSha`, },
+      reposGetBranch.withArgs({owner: `user`, repo: `repo`, branch: `master`}).resolves({
+        data: {
+          commit: {
+            sha: `commonSha`,
+          },
+        },
       });
       // upstream (parent/upstream_repo)
-      reposGetBranch.withArgs({user: `parent`, repo: `upstream_repo`, branch: `master`}).resolves({
-        commit: { sha: `commonSha`, },
+      reposGetBranch.withArgs({owner: `parent`, repo: `upstream_repo`, branch: `master`}).resolves({
+        data: {
+          commit: { sha: `commonSha`, },
+        },
       });
 
       // mock the github constructor
       let ghMock = {
         reposGet: sinon.stub().withArgs(`user`, `repo`).resolves({
-          parent: {
-            owner: {
-              login: `parent`,
+          data: {
+            parent: {
+              owner: {
+                login: `parent`,
+              },
+              name: `upstream_repo`,
+              default_branch: `master`,
             },
-            name: `upstream_repo`,
             default_branch: `master`,
           },
-          default_branch: `master`,
         }),
         reposGetBranch,
       };
@@ -193,9 +207,11 @@ describe(`postUpdate`, function() {
           repo: `repo`,
           state: `open`,
           head: `parent/parentRepo`,
-        }).resolves([{
-          head: {sha: `pullRequestHeadSha`},
-        }]),
+        }).resolves({
+          data: [{
+            head: {sha: `pullRequestHeadSha`},
+          }],
+        }),
         pullRequestsCreate: sinon.stub().rejects(), // shouldn't get here
       };
       sinon.stub(gh, `constructor`).returns(ghMock);
@@ -240,9 +256,11 @@ describe(`postUpdate`, function() {
           repo: `repo`,
           state: `open`,
           head: `parent/parentRepo`,
-        }).resolves([{
-          head: {sha: `pullRequestHeadSha`},
-        }]),
+        }).resolves({
+          data: [{
+            head: {sha: `pullRequestHeadSha`},
+          }],
+        }),
         pullRequestsCreate: sinon.stub().resolves({
           createdPR: true,
         }),

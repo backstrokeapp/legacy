@@ -19,34 +19,34 @@ const ghFactory = require('./github');
 let gh = ghFactory.constructor(github);
 
 // has the given fork diverged from its parent?
-module.exports.hasDivergedFromUpstream = function hasDivergedFromUpstream(user, repo) {
+module.exports.hasDivergedFromUpstream = function hasDivergedFromUpstream(owner, repo) {
   let repoContents;
-  return gh.reposGet({user, repo}).then(repoData => {
-    repoContents = repoData;
-    if (repoData.parent) {
+  return gh.reposGet({owner, repo}).then(repoData => {
+    repoContents = repoData.data;
+    if (repoContents.parent) {
       return Promise.all([
         // base branch
         gh.reposGetBranch({
-          user,
+          owner,
           repo,
-          branch: repoData.default_branch,
+          branch: repoContents.default_branch,
         }),
         // upstream branch
         gh.reposGetBranch({
-          user: repoData.parent.owner.login,
-          repo: repoData.parent.name,
-          branch: repoData.parent.default_branch,
+          owner: repoContents.parent.owner.login,
+          repo: repoContents.parent.name,
+          branch: repoContents.parent.default_branch,
         }),
       ]);
     } else {
-      throw new Error(`The repository ${user}/${repo} isn't a fork.`);
+      throw new Error(`The repository ${owner}/${repo} isn't a fork.`);
     }
   }).then(([base, upstream]) => {
     return {
       repo: repoContents,
-      diverged: base.commit.sha !== upstream.commit.sha,
-      baseSha: base.commit.sha,
-      upstreamSha: upstream.commit.sha,
+      diverged: base.data.commit.sha !== upstream.data.commit.sha,
+      baseSha: base.data.commit.sha,
+      upstreamSha: upstream.data.commit.sha,
     };
   });
 }
@@ -81,23 +81,24 @@ module.exports.postUpdate = function postUpdate(repo, upstreamSha) {
   if (repo) {
     if (repo.parent) {
       return gh.pullRequestsGetAll({
-        user: repo.owner.login || repo.owner.name,
+        owner: repo.owner.login || repo.owner.name,
         repo: repo.name,
         state: "open",
         head: `${repo.parent.owner.login}:${repo.parent.default_branch}`,
       }).then(existingPulls => {
         // are we trying to reintroduce a pull request that has already been
         // made previously?
-        let duplicateRequests = existingPulls.find(pull => pull.head.sha === upstreamSha);
+        let duplicateRequests = existingPulls.data.find(pull => pull.head.sha === upstreamSha);
         if (!duplicateRequests) {
           log(`Making pull to ${repo.owner.login}/${repo.name}`);
           // create a pull request to merge in remote changes
           return gh.pullRequestsCreate({
-            user: repo.owner.login, repo: repo.name,
+            owner: repo.owner.login, repo: repo.name,
             title: `Update from upstream repo ${repo.parent.full_name}`,
             head: `${repo.parent.owner.login}:${repo.parent.default_branch}`,
             base: repo.default_branch,
             body: module.exports.generateUpdateBody(repo.parent.full_name),
+            maintainer_can_modify: false,
           });
         } else {
           log(`A Backstroke pull request already exists on ${repo.full_name}. Done.`);
@@ -218,7 +219,7 @@ module.exports.isForkMergeUpstream = function isForkMergeUpstream(repository, op
 
 module.exports.isParentFindForks = function isParentFindForks(repository, opts={}) {
   return gh.reposGetForks({
-    user: repository.owner.name || repository.owner.login,
+    owner: repository.owner.name || repository.owner.login,
     repo: repository.name,
   }).then(forks => {
     let pullreqs = forks.map(fork => {
