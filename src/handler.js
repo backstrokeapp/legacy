@@ -222,7 +222,7 @@ module.exports.isParentFindForks = function isParentFindForks(repository, opts={
     owner: repository.owner.name || repository.owner.login,
     repo: repository.name,
   }).then(forks => {
-    let pullreqs = forks.map(fork => {
+    let pullreqs = forks.data.map(fork => {
       return module.exports.isForkMergeUpstream(fork, opts);
     });
 
