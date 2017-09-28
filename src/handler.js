@@ -57,13 +57,16 @@ module.exports.generateUpdateBody = function generateUpdateBody(fullRemote, temp
 
   So, here they are, ready to be merged! :tada:
 
-  If this pull request can be merged without conflict, you can publish your software
-  with these new changes.  Otherwise, if you have merge conflicts, this
-  is the place to fix them.
+  It's also worth noting that you're using an old version of Backstroke. At your earliest
+  convenience, please update to a newer version! Here's how:
+  1. Remove the \`http://backstroke.us\` webhook from your repository.
+  2. Visit https://backstroke.co/, and click the big \`Login with Github\` button.
+  3. Create a link mirroring the Backstroke setup you had previously.
 
-  Have fun!
+  Thanks!
+
   --------
-  Created by [Backstroke](http://backstroke.us). Oh yea, I'm a bot.
+  Created by [Backstroke](http://backstroke.co). I'm a bot!
   `
 }
 
