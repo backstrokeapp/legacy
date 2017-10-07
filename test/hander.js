@@ -122,10 +122,12 @@ describe(`didUserOptOut`, function() {
         searchIssues: sinon.stub().withArgs({
           q: `repo:user/repo is:pr label:output`,
         }).resolves({
-          total_count: 1,
-          issues: [
-            { number: 1, }
-          ]
+          data: {
+            total_count: 1,
+            issues: [
+              { number: 1, }
+            ],
+          },
         }),
       };
       sinon.stub(gh, `constructor`).returns(ghMock);
@@ -152,8 +154,10 @@ describe(`didUserOptOut`, function() {
         searchIssues: sinon.stub().withArgs({
           q: `repo:user/repo is:pr label:output`,
         }).resolves({
-          total_count: 0,
-          issues: [],
+          data: {
+            total_count: 0,
+            issues: [],
+          },
         }),
       };
       sinon.stub(gh, `constructor`).returns(ghMock);

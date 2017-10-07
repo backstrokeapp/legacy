@@ -75,7 +75,7 @@ module.exports.didUserOptOut = function didUserOptOut(user, repo) {
   return gh.searchIssues({
     q: `repo:${user}/${repo} is:pr label:optout`,
   }).then(issues => {
-    return issues.total_count > 0;
+    return issues.data.total_count > 0;
   });
 }
 
@@ -215,7 +215,7 @@ module.exports.isForkMergeUpstream = function isForkMergeUpstream(repository, op
       });
     } else {
       log(`Fork and upstream haven't diverged. Done.`);
-      return "Thanks anyway, but the user either opted out or this isn't an imporant event.";
+      return "Thanks anyway, but the user either opted out or this isn't an important event.";
     }
   });
 }
